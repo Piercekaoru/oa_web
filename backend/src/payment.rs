@@ -6,8 +6,6 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use serde::Deserialize;
-
 pub const PROVIDER: &str = "fovpay";
 
 const CREATE_ENDPOINT: &str = "https://www.fovpay.com/openapi/pay/create";
@@ -30,21 +28,6 @@ pub fn sign(params: &BTreeMap<String, String>, key: &str) -> String {
         .collect();
     let base = format!("{}&key={}", pairs.join("&"), key);
     format!("{:X}", md5::compute(base))
-}
-
-#[derive(Deserialize)]
-struct CreateResp {
-    code: i64,
-    #[serde(default)]
-    msg: String,
-    #[serde(default)]
-    data: Option<CreateData>,
-}
-
-#[derive(Deserialize)]
-struct CreateData {
-    #[serde(default)]
-    pay_url: String,
 }
 
 /// Create a payment order at FovPay and return the pay URL the user is sent to.
@@ -86,17 +69,32 @@ pub async fn create_order(
         .await
         .map_err(|e| format!("fovpay request failed: {}", e))?;
 
-    let parsed: CreateResp = resp
-        .json()
+    let status = resp.status();
+    let body = resp
+        .text()
         .await
-        .map_err(|e| format!("invalid fovpay response: {}", e))?;
+        .map_err(|e| format!("fovpay read body failed: {}", e))?;
 
-    if parsed.code != 1 {
-        return Err(format!("fovpay create failed: {}", parsed.msg));
+    let v: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("invalid fovpay response ({}): {} | body: {}", status, e, body))?;
+
+    // FovPay may return numeric fields as numbers or strings; accept both.
+    let code = v
+        .get("code")
+        .and_then(|c| c.as_i64().or_else(|| c.as_str().and_then(|s| s.trim().parse().ok())));
+    if code != Some(1) {
+        let msg = v.get("msg").and_then(|m| m.as_str()).unwrap_or("");
+        return Err(format!("fovpay create failed (code={:?}): {} | body: {}", code, msg, body));
     }
-    let pay_url = parsed.data.map(|d| d.pay_url).unwrap_or_default();
+
+    let pay_url = v
+        .get("data")
+        .and_then(|d| d.get("pay_url"))
+        .and_then(|p| p.as_str())
+        .unwrap_or("")
+        .to_string();
     if pay_url.is_empty() {
-        return Err("fovpay returned empty pay_url".into());
+        return Err(format!("fovpay returned empty pay_url | body: {}", body));
     }
     Ok(pay_url)
 }
