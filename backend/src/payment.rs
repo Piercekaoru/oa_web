@@ -61,7 +61,10 @@ pub async fn create_order(
     form.push(("sign_type".into(), "MD5".into()));
     form.push(("sign".into(), signature));
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("fovpay client build failed: {}", e))?;
     let resp = client
         .post(CREATE_ENDPOINT)
         .form(&form)
