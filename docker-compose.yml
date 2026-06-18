@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: oa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oa
+      POSTGRES_PASSWORD: oa_secret
+      POSTGRES_DB: openachieve
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oa -d openachieve"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    container_name: oa-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://oa:oa_secret@postgres:5432/openachieve
+      JWT_SECRET: "${JWT_SECRET:-oa-jwt-secret-key-2026}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM: "${RESEND_FROM:-onboarding@resend.dev}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      CPA_BASE_URL: "${CPA_BASE_URL:-}"
+      CPA_API_KEY: "${CPA_API_KEY:-}"
+      FOVPAY_PID: "${FOVPAY_PID:-}"
+      FOVPAY_KEY: "${FOVPAY_KEY:-}"
+      FOVPAY_USD_CNY_RATE: "${FOVPAY_USD_CNY_RATE:-7.20}"
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:3000}"
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-http://localhost:8080}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    container_name: oa-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: "${VITE_API_BASE:-http://localhost:8080}"
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
