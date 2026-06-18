@@ -270,7 +270,7 @@ function PricingPage({ loggedInUser }) {
     { key: "free", name: "Free", price: "$0", desc: "Bring Your Own Key (BYOK) to get started instantly." },
     { key: "plus", name: "Plus", price: "$20", desc: "Includes 2,000 credits for daily tasks with standard models." },
     { key: "pro", name: "Pro", price: "$100", desc: "Includes 10,000 credits for heavy professional workflows." },
-    { key: "max", name: "Max", price: "$200", desc: "Includes 20,000 credits and exclusive access to our dynamic fusion models.", glow: true }
+    { key: "max", name: "Max", price: "$200", desc: "Includes 20,000 credits and exclusive access to our dynamic fusion models.", glow: true, available: false }
   ];
 
   const pollOrder = async (orderId, token) => {
@@ -291,6 +291,7 @@ function PricingPage({ loggedInUser }) {
   };
 
   const handleSubscribe = async (tier) => {
+    if (tier.available === false) return;
     if (tier.key === 'free') { navigate('#install'); return; }
     if (!loggedInUser) { navigate('#auth'); return; }
 
@@ -359,18 +360,20 @@ function PricingPage({ loggedInUser }) {
 
             <button
               onClick={() => handleSubscribe(tier)}
-              disabled={pending === tier.key}
+              disabled={pending === tier.key || tier.available === false}
               className={cn(
               "w-full py-4 rounded-full font-medium transition-all duration-300 flex justify-center items-center gap-2 group-hover:gap-4",
               tier.glow
                 ? "bg-blue-500 text-white hover:bg-blue-400 shadow-lg"
                 : "bg-white/10 text-white hover:bg-white hover:text-black",
-              pending === tier.key && "opacity-60 cursor-not-allowed"
+              (pending === tier.key || tier.available === false) && "opacity-60 cursor-not-allowed"
             )}>
-              {pending === tier.key
-                ? "Waiting for payment..."
-                : tier.price === "$0" ? "Start Free" : "Subscribe"}
-              {pending !== tier.key && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
+              {tier.available === false
+                ? "Coming Soon"
+                : pending === tier.key
+                  ? "Waiting for payment..."
+                  : tier.price === "$0" ? "Start Free" : "Subscribe"}
+              {tier.available !== false && pending !== tier.key && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
             </button>
           </div>
         ))}
@@ -407,15 +410,21 @@ function DynamicPage() {
       q: "Can I specify the models to fuse?", 
       a: "Model selection is fully automated. Custom model specification is not currently available, ensuring optimal performance and latency out-of-the-box without manual configuration." 
     },
-    { 
-      q: "Which subscriptions include this?", 
-      a: "Currently, this is an exclusive feature for MAX tier subscribers. We plan to gradually roll this out to other paid tiers in the future (excluding the Free tier)." 
+    {
+      q: "Which subscriptions include this?",
+      a: "Dynamic will be available to MAX and PRO tier subscribers. It's launching soon — stay tuned."
     }
   ];
 
   return (
     <div ref={containerRef} className="mt-16 md:mt-32 relative z-20 flex flex-col pb-32">
-      
+
+      {/* Coming Soon badge */}
+      <div className="dynamic-anim inline-flex items-center gap-2 self-start mb-6 px-4 py-2 rounded-full border border-blue-400/30 bg-blue-500/10">
+        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+        <span className="text-blue-300 text-sm font-medium tracking-widest uppercase">Coming Soon</span>
+      </div>
+
       {/* Massive Typography Hero */}
       <div className="flex flex-col space-y-4 md:space-y-6 mb-24">
         <h1 className="dynamic-anim text-white text-[60px] md:text-[100px] lg:text-[140px] tracking-[-0.04em] leading-[0.85] font-medium">
