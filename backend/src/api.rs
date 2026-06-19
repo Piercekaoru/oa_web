@@ -69,15 +69,30 @@ pub async fn checkout(
             _ => return HttpResponse::InternalServerError().json(json!({ "success": false })),
         }
     } else {
-        match plans::find(&body.plan) {
-            Some(p) if p.price_cents > 0 => {
-                (p.key, p.price_cents, format!("OpenAchieve {} plan", p.key))
-            }
+        let plan = match plans::find(&body.plan) {
+            Some(p) if p.price_cents > 0 => p,
             _ => {
                 return HttpResponse::BadRequest()
                     .json(json!({ "success": false, "message": "Invalid plan." }))
             }
+        };
+        // Reject same-or-lower tier: grant_period overwrites credits and resets the
+        // period, so a downgrade or repurchase would destroy the current balance.
+        let cur_rank = match credits::current(&state.db, &user.id).await {
+            Ok(Some(s)) if s.status == "active" => plans::rank(&s.plan),
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("DB error: {}", e);
+                return HttpResponse::InternalServerError().json(json!({ "success": false }));
+            }
+        };
+        if plans::rank(plan.key) <= cur_rank {
+            return HttpResponse::BadRequest().json(json!({
+                "success": false,
+                "message": "You're already on this plan or a higher one."
+            }));
         }
+        (plan.key, plan.price_cents, format!("OpenAchieve {} plan", plan.key))
     };
 
     let order_id = match db::create_payment_order(

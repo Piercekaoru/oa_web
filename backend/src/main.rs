@@ -10,6 +10,9 @@ mod openrouter;
 mod payment;
 mod plans;
 
+#[cfg(test)]
+mod integration_tests;
+
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use tokio_postgres::NoTls;

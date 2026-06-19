@@ -287,6 +287,8 @@ function PricingPage({ loggedInUser }) {
   const containerRef = useRef(null);
   const [pending, setPending] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
+  const RANK = { free: 0, plus: 1, pro: 2, max: 3 };
+  const curRank = RANK[currentPlan] ?? 0;
 
   useEffect(() => {
     if (!loggedInUser) { setCurrentPlan(null); return; }
@@ -386,23 +388,34 @@ function PricingPage({ loggedInUser }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
         {tiers.map((tier, i) => {
           const isMax = tier.key === 'max';
-          const isPro = currentPlan === 'pro';
-          const canUpgrade = isMax && isPro;   // Pro 用户:+$100 升级到 Max
-          const maxGuide = isMax && !isPro;     // 非 Pro:引导先订 Pro
+          const isFree = tier.key === 'free';
+          const cardRank = RANK[tier.key];
+          const isCurrent = !isFree && currentPlan === tier.key;            // 当前套餐
+          const canUpgrade = isMax && currentPlan === 'pro';                // Pro→Max 升级
+          const maxGuide = isMax && !isCurrent && !canUpgrade && curRank < RANK.pro; // 引导先订 Pro
+          const isDowngrade = !isFree && !isCurrent && !canUpgrade && cardRank < curRank; // 低于当前
           const activeKey = canUpgrade ? 'max_upgrade' : tier.key;
           const isPendingThis = pending === activeKey;
+          const disabled = isPendingThis || isCurrent || isDowngrade;
           const handleClick = () => {
+            if (isCurrent || isDowngrade) return;
             if (canUpgrade) return handleSubscribe({ key: 'max_upgrade', name: 'Max' });
             if (maxGuide) return handleSubscribe(tiers.find((t) => t.key === 'pro'));
             return handleSubscribe(tier);
           };
           const label = isPendingThis
             ? "Waiting for payment..."
-            : canUpgrade
-              ? "Upgrade · +$100"
-              : maxGuide
-                ? "Subscribe Pro first"
-                : tier.price === "$0" ? "Start Free" : "Subscribe";
+            : isCurrent
+              ? "Current Plan"
+              : isDowngrade
+                ? "Included"
+                : isFree
+                  ? "Start Free"
+                  : canUpgrade
+                    ? "Upgrade · +$100"
+                    : maxGuide
+                      ? "Subscribe Pro first"
+                      : "Subscribe";
           return (
           <div key={i} className={cn(
             "pricing-anim relative flex flex-col justify-between p-8 md:p-10 rounded-[2rem] border transition-all duration-500 group",
@@ -424,25 +437,27 @@ function PricingPage({ loggedInUser }) {
               </p>
               {isMax && (
                 <p className="text-blue-300/70 text-sm font-light leading-relaxed mb-12">
-                  {canUpgrade
-                    ? "You're on Pro — add $100 to upgrade to Max."
-                    : "Subscribe to Pro first, then add $100 to upgrade to Max."}
+                  {isCurrent
+                    ? "You're on the Max plan."
+                    : canUpgrade
+                      ? "You're on Pro — add $100 to upgrade to Max."
+                      : "Subscribe to Pro first, then add $100 to upgrade to Max."}
                 </p>
               )}
             </div>
 
             <button
               onClick={handleClick}
-              disabled={isPendingThis}
+              disabled={disabled}
               className={cn(
               "w-full py-4 rounded-full font-medium transition-all duration-300 flex justify-center items-center gap-2 group-hover:gap-4",
               tier.glow
                 ? "bg-blue-500 text-white hover:bg-blue-400 shadow-lg"
                 : "bg-white/10 text-white hover:bg-white hover:text-black",
-              isPendingThis && "opacity-60 cursor-not-allowed"
+              disabled && "opacity-60 cursor-not-allowed"
             )}>
               {label}
-              {!isPendingThis && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
+              {!disabled && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
             </button>
           </div>
           );

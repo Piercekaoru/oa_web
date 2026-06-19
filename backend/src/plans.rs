@@ -37,6 +37,16 @@ pub fn find(plan_key: &str) -> Option<&'static Plan> {
     PLANS.iter().find(|p| p.key == plan_key)
 }
 
+/// Tier ordering for upgrade/downgrade checks (higher = more). Unknown/free = 0.
+pub fn rank(plan_key: &str) -> i32 {
+    match plan_key {
+        "plus" => 1,
+        "pro" => 2,
+        "max" => 3,
+        _ => 0,
+    }
+}
+
 /// Convert real OpenRouter cost (micro-USD) into credits to charge.
 /// Rounds to the nearest credit; a non-zero cost always charges at least 1.
 pub fn cost_to_credits(cost_micros: i64) -> i32 {
@@ -115,4 +125,81 @@ pub fn cpa_credits_from_rates(
 
 pub fn cpa_credits(m: &CpaModel, prompt_tokens: i32, completion_tokens: i32) -> i32 {
     cpa_credits_from_rates(m.credits_per_mtok_in, m.credits_per_mtok_out, prompt_tokens, completion_tokens)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rank_orders_tiers() {
+        assert_eq!(rank("free"), 0);
+        assert_eq!(rank("plus"), 1);
+        assert_eq!(rank("pro"), 2);
+        assert_eq!(rank("max"), 3);
+        assert_eq!(rank("anything-unknown"), 0);
+        assert!(rank("free") < rank("plus"));
+        assert!(rank("plus") < rank("pro"));
+        assert!(rank("pro") < rank("max"));
+    }
+
+    #[test]
+    fn find_returns_known_plans_only() {
+        assert!(find("nope").is_none());
+        assert!(find("pro").is_some());
+        assert!(!find("pro").unwrap().dynamic);
+        assert!(find("max").unwrap().dynamic, "only Max may use dynamic models");
+    }
+
+    #[test]
+    fn pro_to_max_upgrade_delta_is_100_usd_and_10k_credits() {
+        let pro = find("pro").unwrap();
+        let max = find("max").unwrap();
+        // The upgrade order charges, and grants, exactly the Max−Pro delta.
+        assert_eq!(max.price_cents - pro.price_cents, 10_000); // $100.00
+        assert_eq!(max.credits - pro.credits, 10_000);
+    }
+
+    #[test]
+    fn cost_to_credits_rounds_to_nearest_with_min_one() {
+        assert_eq!(cost_to_credits(0), 0);
+        assert_eq!(cost_to_credits(-5), 0);
+        assert_eq!(cost_to_credits(1), 1); // any non-zero cost charges at least 1
+        assert_eq!(cost_to_credits(2_000), 1); // 0.5 credit rounds up
+        assert_eq!(cost_to_credits(4_000), 1); // exactly 1 credit ($0.004)
+        assert_eq!(cost_to_credits(6_000), 2); // 1.5 rounds up
+        assert_eq!(cost_to_credits(10_000), 3); // 2.5 rounds up
+    }
+
+    #[test]
+    fn cpa_credits_ceils_with_min_one() {
+        assert_eq!(cpa_credits_from_rates(1, 0, 0, 0), 0);
+        assert_eq!(cpa_credits_from_rates(1, 0, 1, 0), 1); // tiny usage -> 1
+        assert_eq!(cpa_credits_from_rates(1, 0, 1_000_000, 0), 1); // exactly 1M
+        assert_eq!(cpa_credits_from_rates(1, 0, 1_000_001, 0), 2); // ceils
+        // Mixed in/out rates.
+        assert_eq!(cpa_credits_from_rates(400, 1_600, 1_000_000, 0), 400);
+    }
+
+    #[test]
+    fn cpa_credits_uses_model_rates() {
+        let m = find_cpa("openachieve/grok-build-0.1").expect("catalog model exists");
+        assert_eq!(cpa_credits(m, 0, 0), 0);
+        // 1M prompt tokens at 400 credits/Mtok in = 400 credits.
+        assert_eq!(cpa_credits(m, 1_000_000, 0), 400);
+    }
+
+    #[test]
+    fn model_allowed_gates_dynamic_to_max() {
+        // Non-dynamic models are open to every plan.
+        assert!(model_allowed("free", "openai/gpt-4o"));
+        assert!(model_allowed("plus", "openachieve/grok-build-0.1"));
+        // Dynamic / fusion models are Max-only.
+        assert!(model_allowed("max", "openachieve/dynamic-pro"));
+        assert!(model_allowed("max", "openachieve/fusion-x"));
+        assert!(!model_allowed("pro", "openachieve/dynamic-pro"));
+        assert!(!model_allowed("free", "openachieve/fusion-x"));
+        // Unknown plan never gets dynamic access.
+        assert!(!model_allowed("bogus", "openachieve/dynamic-pro"));
+    }
 }
