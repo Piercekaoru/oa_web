@@ -101,9 +101,17 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, currentHash, loggedInUs
               </a>
             ))}
             {loggedInUser && (
-              <a href="#dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-white/80 text-xl font-medium hover:text-white transition-colors">
-                Dashboard
-              </a>
+              <>
+                <a href="#dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-white/80 text-xl font-medium hover:text-white transition-colors">
+                  Dashboard
+                </a>
+                <button
+                  onClick={() => { setIsMobileMenuOpen(false); onLogout(); }}
+                  className="mt-4 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-6 py-3.5 text-[16px] font-medium w-full transition-colors border border-white/10"
+                >
+                  Log Out
+                </button>
+              </>
             )}
             {!loggedInUser && (
               <a href="#auth" onClick={() => setIsMobileMenuOpen(false)} className="mt-4 flex items-center justify-center gap-2 bg-[#4B66D1] hover:bg-[#3B54B4] text-white rounded-full px-6 py-3.5 text-[16px] font-medium w-full transition-colors shadow-lg">
@@ -120,30 +128,51 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, currentHash, loggedInUs
 
 function HomePage() {
   return (
-    <main className="mt-auto relative z-20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-end gap-10 lg:gap-20 animate-in fade-in duration-700">
-      <div className="flex flex-col space-y-4 md:space-y-6">
-        <h1 className="text-white text-[60px] md:text-[86px] tracking-[-0.04em] leading-[0.85] font-medium">
-          Open
-        </h1>
-        <h1 
-          className="text-[60px] md:text-[86px] tracking-[-0.04em] leading-[0.85] font-medium text-white/20"
-          style={{ WebkitTextStroke: '1.5px rgba(255, 255, 255, 0.9)' }}
-        >
-          achieve
-        </h1>
-      </div>
-      
-      <div className="flex flex-col md:items-end max-w-full md:max-w-[340px] gap-6 lg:gap-8 w-full">
-        <p className="text-white/95 text-[15px] md:text-[16px] leading-relaxed font-light text-left">
-          Welcome to OpenAchieve. Get started and subscribe to our Agent!
-        </p>
+    <div className="mt-auto relative z-20 flex flex-col w-full">
+      <main className="pb-16 md:pb-24 flex flex-col md:flex-row justify-between items-start md:items-end gap-10 lg:gap-20 animate-in fade-in duration-700">
+        <div className="flex flex-col space-y-4 md:space-y-6">
+          <h1 className="text-white text-[60px] md:text-[86px] tracking-[-0.04em] leading-[0.85] font-medium">
+            Open
+          </h1>
+          <h1 
+            className="text-[60px] md:text-[86px] tracking-[-0.04em] leading-[0.85] font-medium text-white/20"
+            style={{ WebkitTextStroke: '1.5px rgba(255, 255, 255, 0.9)' }}
+          >
+            achieve
+          </h1>
+        </div>
         
-        <a href="#install" className="group flex justify-between items-center w-full sm:w-[240px] px-6 py-4 rounded-full font-medium shadow-lg bg-white text-black hover:bg-gray-50 transition-all duration-300">
-          View Installation
-          <ArrowUpRight className="w-5 h-5 stroke-[2] transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
-        </a>
-      </div>
-    </main>
+        <div className="flex flex-col md:items-end max-w-full md:max-w-[340px] gap-6 lg:gap-8 w-full">
+          <p className="text-white/95 text-[15px] md:text-[16px] leading-relaxed font-light text-left">
+            Welcome to OpenAchieve. Get started and subscribe to our Agent!
+          </p>
+          
+          <a href="#install" className="group flex justify-between items-center w-full sm:w-[240px] px-6 py-4 rounded-full font-medium shadow-lg bg-white text-black hover:bg-gray-50 transition-all duration-300">
+            View Installation
+            <ArrowUpRight className="w-5 h-5 stroke-[2] transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+          </a>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full pt-6 md:pt-8 pb-4 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 text-white/40 text-[13px] font-medium animate-in fade-in duration-700">
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <a href="#docs" className="hover:text-white transition-colors">Docs</a>
+          <a href="#terms" className="hover:text-white transition-colors">Terms of Service</a>
+          <a href="#privacy" className="hover:text-white transition-colors">Privacy Policy</a>
+          <a href="#data-usage" className="hover:text-white transition-colors">Data Usage</a>
+        </div>
+        <div className="flex items-center gap-6">
+          <a href="https://discord.gg/j5DmQKgME" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
+            </svg>
+            Discord
+          </a>
+          <span>© 2026 OpenAchieve</span>
+        </div>
+      </footer>
+    </div>
   );
 }
 
@@ -751,7 +780,7 @@ function AuthPage({ onLoginSuccess }) {
   );
 }
 
-function DashboardPage({ user }) {
+function DashboardPage({ user, onLogout }) {
   const containerRef = useRef(null);
   const [sub, setSub] = useState(null);
   const [loading, setLoading] = useState(() => !!localStorage.getItem('oa_token'));
@@ -814,6 +843,13 @@ function DashboardPage({ user }) {
               <div className="text-white text-xl">{user?.email || '—'}</div>
             </div>
           </div>
+
+          <button
+            onClick={onLogout}
+            className="mt-10 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-6 py-3 text-sm font-medium transition-colors border border-white/10"
+          >
+            Log Out
+          </button>
         </div>
 
         {/* Subscription & Credits */}
@@ -972,6 +1008,225 @@ function DevicePage({ loggedInUser, initialCode }) {
   );
 }
 
+function GenericPage({ title, children }) {
+  return (
+    <div className="mt-16 md:mt-24 relative z-20 flex flex-col max-w-4xl mx-auto w-full pb-32 animate-in fade-in duration-700">
+      <h1 className="text-white text-4xl md:text-5xl font-medium tracking-tight mb-8 md:mb-12">
+        {title}
+      </h1>
+      <div className="text-white/70 text-[16px] leading-relaxed space-y-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function H2({ children }) {
+  return <h2 className="text-white text-2xl font-medium tracking-tight pt-4">{children}</h2>;
+}
+
+function Code({ children }) {
+  return <code className="text-blue-300 bg-white/5 px-1.5 py-0.5 rounded text-[14px]">{children}</code>;
+}
+
+function Cmd({ children }) {
+  return <pre className="bg-white/5 border border-white/10 rounded-xl p-4 overflow-x-auto text-[13px] text-white/80 leading-relaxed">{children}</pre>;
+}
+
+function DocsPage() {
+  return (
+    <GenericPage title="Documentation">
+      <p>OpenAchieve is a coding agent you run in your terminal. Subscribe once, sign in, and spend your credits to run powerful models on your own machine — with built-in safety, parallel subagents, autonomous goal mode, and full provider flexibility.</p>
+
+      <H2>Getting Started</H2>
+      <p>Install the CLI globally, then run it inside any project directory:</p>
+      <Cmd>{`npm install -g --ignore-scripts @openachieve/agent
+oa`}</Cmd>
+      <p>Sign in with <Code>/login</Code> and choose <strong className="text-white">OpenAchieve</strong>. A browser window opens for device authorization — enter the displayed code to link your account. Check your plan and credit balance from your <a className="text-blue-300 hover:text-blue-200 underline" href="#dashboard">Dashboard</a>, and switch models anytime with <Code>/model</Code>.</p>
+
+      <H2>Subscription &amp; Credits</H2>
+      <p>Paid plans grant a monthly allotment of credits; every model request draws from that balance. Credits are valid for the 30-day billing period and do not roll over.</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong className="text-white">Plus / Pro / Max</strong> — increasing monthly credits. See <a className="text-blue-300 hover:text-blue-200 underline" href="#pricing">Pricing</a>.</li>
+        <li><strong className="text-white">Max</strong> unlocks our Dynamic fusion models. Already on Pro? Upgrade to Max for an additional $100 from the pricing page.</li>
+      </ul>
+
+      <H2>Bring Your Own Provider</H2>
+      <p>Prefer your own API key or a third-party relay? Point OpenAchieve at any OpenAI- or Anthropic-compatible endpoint via <Code>~/.openachieve/agent/config.toml</Code>:</p>
+      <Cmd>{`[providers.my-relay]
+baseUrl = "https://relay.example.com/v1"
+api = "openai-completions"   # or "anthropic-messages"
+apiKey = "sk-..."
+models = ["gpt-4o", "o3"]
+
+[settings]
+defaultModel = "my-relay/gpt-4o"`}</Cmd>
+      <p>Register as many providers and models as you like, then switch between them with <Code>/model</Code>.</p>
+
+      <H2>Permissions &amp; Safety</H2>
+      <p>Every action that touches your filesystem or runs a command passes through a permission layer. Choose how strict it is:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><Code>ask</Code> — confirm sensitive actions interactively (default).</li>
+        <li><Code>allow</Code> — auto-approve, while still blocking credential files.</li>
+        <li><Code>bypass</Code> — skip prompts entirely (trusted environments only).</li>
+      </ul>
+      <p>Set it with <Code>oa --permission-mode &lt;mode&gt;</Code> or the <Code>permission</Code> block in <Code>settings.json</Code>. Secrets such as <Code>.env</Code>, <Code>~/.ssh/*</Code>, and <Code>*.pem</Code> are protected by default.</p>
+
+      <H2>Sandboxing &amp; Containers</H2>
+      <p>For extra isolation, run OpenAchieve inside a sandbox or container so tools execute against a contained filesystem, process space, and network. You can containerize the entire <Code>oa</Code> process with Docker, or use a sandbox to scope what the agent can reach. Permissions and sandboxing act as two independent safety layers.</p>
+
+      <H2>Subagents</H2>
+      <p>Delegate work to specialized agents that run in parallel and report back. List what's available with <Code>/agents</Code>, then:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><Code>/run &lt;agent&gt; [task]</Code> — run a single subagent.</li>
+        <li><Code>/parallel</Code> / <Code>/chain</Code> — fan out concurrently or pipe one into the next.</li>
+        <li><Code>/view-agent</Code> — watch a running subagent's conversation live.</li>
+      </ul>
+      <p>Built-in roles include scout, planner, worker, and reviewer; runs can be backgrounded or forked from the current session.</p>
+
+      <H2>Goal Mode</H2>
+      <p>Hand OpenAchieve an objective and let it iterate autonomously until done. Start with <Code>/goal &lt;intent&gt;</Code>, or launch via <Code>oa --goal "..."</Code>. An independent judge model verifies your completion criteria so the agent can't declare success prematurely. Steer a run with <Code>/goal status</Code>, <Code>pause</Code>, <Code>resume</Code>, or <Code>cancel</Code>.</p>
+
+      <H2>Plan Mode</H2>
+      <p>Toggle <Code>/plan</Code> (or <Code>Ctrl+Alt+P</Code>) to enter a read-only mode: the agent explores your code and proposes a numbered plan, and only executes after you approve it — ideal for high-stakes changes.</p>
+
+      <H2>MCP (Model Context Protocol)</H2>
+      <p>Connect external tools through MCP servers. Configure them in <Code>~/.openachieve/agent/mcp.json</Code>:</p>
+      <Cmd>{`{
+  "mcpServers": {
+    "my-tool": { "command": "npx", "args": ["-y", "my-mcp-server"] },
+    "remote":  { "url": "https://mcp.example.com" }
+  }
+}`}</Cmd>
+      <p>Inspect connections with <Code>/mcp</Code> and list exposed tools with <Code>/mcp tools</Code>.</p>
+
+      <H2>Extensions</H2>
+      <p>Extend OpenAchieve with TypeScript extensions to add commands, providers, or behaviors — load one with <Code>oa -e &lt;path&gt;</Code> or drop it into your extensions directory.</p>
+    </GenericPage>
+  );
+}
+
+function TermsPage() {
+  return (
+    <GenericPage title="Terms of Service">
+      <p className="text-white/40 text-sm">Last updated: June 20, 2026</p>
+      <p>These Terms of Service ("Terms") govern your access to and use of OpenAchieve, including the <Code>oa</Code> command-line agent, the OpenAchieve website, and related subscription services (collectively, the "Service"). By creating an account or using the Service, you agree to these Terms.</p>
+
+      <H2>1. Eligibility &amp; Accounts</H2>
+      <p>You must be able to form a binding contract to use the Service. You are responsible for the information you provide, for keeping your account credentials secure, and for all activity under your account.</p>
+
+      <H2>2. The Service</H2>
+      <p>OpenAchieve provides a coding agent that, with your subscription, routes your model requests to third-party model providers to generate responses. Features, models, and limits may change over time as we improve the Service.</p>
+
+      <H2>3. Subscriptions &amp; Credits</H2>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Paid plans grant an allotment of <strong className="text-white">credits</strong>, measured in credits rather than currency. Model usage consumes credits.</li>
+        <li>Credits are valid for the 30-day billing period and <strong className="text-white">do not roll over</strong>; any unused balance expires at the end of the period.</li>
+        <li>Except where required by law, payments and credits are <strong className="text-white">non-refundable</strong>.</li>
+        <li>Payments are handled by a third-party payment provider; we do not store your full payment details.</li>
+        <li>We may change pricing or plan contents prospectively; changes do not affect a period you have already paid for.</li>
+      </ul>
+
+      <H2>4. Acceptable Use</H2>
+      <p>You agree not to use the Service to violate any law, infringe others' rights, generate harmful or abusive content, resell or redistribute access, circumvent credit metering or usage limits, or attempt to disrupt or reverse-engineer the Service.</p>
+
+      <H2>5. Bring-Your-Own Keys &amp; Relays</H2>
+      <p>If you configure your own API keys or third-party relays, your use of those providers is governed by their terms, and you are responsible for any associated costs and compliance.</p>
+
+      <H2>6. Intellectual Property</H2>
+      <p>You retain rights to the inputs you provide and the outputs you generate, to the extent permitted by applicable law and any third-party provider terms. OpenAchieve and its software, branding, and content remain our property.</p>
+
+      <H2>7. Disclaimers</H2>
+      <p>The Service is provided "as is" without warranties of any kind. AI-generated output may be inaccurate or incomplete — review and verify it before relying on it, especially for code that modifies your systems.</p>
+
+      <H2>8. Limitation of Liability</H2>
+      <p>To the maximum extent permitted by law, OpenAchieve is not liable for indirect, incidental, or consequential damages, or for any loss of data, profits, or business arising from your use of the Service.</p>
+
+      <H2>9. Termination</H2>
+      <p>You may stop using the Service at any time. We may suspend or terminate access for violations of these Terms or to protect the Service and its users.</p>
+
+      <H2>10. Changes to These Terms</H2>
+      <p>We may update these Terms from time to time. Material changes will be reflected by the "Last updated" date above; continued use constitutes acceptance.</p>
+
+      <H2>11. Governing Law</H2>
+      <p>These Terms are governed by the laws of [Governing jurisdiction — to be specified], without regard to conflict-of-law principles.</p>
+
+      <H2>12. Contact</H2>
+      <p>Questions about these Terms? Contact us at <a className="text-blue-300 hover:text-blue-200 underline" href="mailto:kayano04@proton.me">kayano04@proton.me</a>.</p>
+    </GenericPage>
+  );
+}
+
+function PrivacyPage() {
+  return (
+    <GenericPage title="Privacy Policy">
+      <p className="text-white/40 text-sm">Last updated: June 20, 2026</p>
+      <p>This Privacy Policy explains what information OpenAchieve collects, how we use it, and the choices you have. It applies to the OpenAchieve website, the <Code>oa</Code> agent, and related services.</p>
+
+      <H2>Information We Collect</H2>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong className="text-white">Account data</strong> — your email address and name.</li>
+        <li><strong className="text-white">Authentication</strong> — login and session tokens used to keep you signed in.</li>
+        <li><strong className="text-white">Subscription &amp; usage</strong> — your plan, credit balance, and usage metadata (measured in credits).</li>
+        <li><strong className="text-white">Payment status</strong> — confirmation of payments from our payment provider. We do not store your card details.</li>
+        <li><strong className="text-white">Content you submit</strong> — the prompts, code, and conversation data you send while using the agent.</li>
+        <li><strong className="text-white">Diagnostics</strong> — minimal, operational telemetry to keep the Service reliable.</li>
+      </ul>
+
+      <H2>How We Use It</H2>
+      <p>We use this information to operate and provide the Service, process payments, maintain your account and credit balance, prevent abuse, provide support, and improve reliability.</p>
+
+      <H2>Sharing</H2>
+      <p>We share data only as needed to run the Service: with third-party model providers (to fulfill your model requests), our payment processor, our email-delivery provider, and our hosting infrastructure. We do not sell your personal data.</p>
+
+      <H2>Data Retention</H2>
+      <p>We retain account data while your account is active, and conversation or session data to power features like history and your dashboard. You can request deletion of your data at any time.</p>
+
+      <H2>Security</H2>
+      <p>We protect data in transit with encryption and apply access controls. Your agent credentials are stored locally on your own device.</p>
+
+      <H2>Your Rights</H2>
+      <p>You may request to access, correct, export, or delete your personal data by contacting us, and we will respond consistent with applicable law.</p>
+
+      <H2>International Transfers</H2>
+      <p>Your data may be processed in countries other than where you live. Where required, we use appropriate safeguards for such transfers.</p>
+
+      <H2>Children</H2>
+      <p>The Service is not directed to children and is not intended for use by anyone under the age required by their local law to consent to data processing.</p>
+
+      <H2>Changes</H2>
+      <p>We may update this Policy; material changes will be reflected by the "Last updated" date above.</p>
+
+      <H2>Contact</H2>
+      <p>For privacy questions or requests, contact <a className="text-blue-300 hover:text-blue-200 underline" href="mailto:kayano04@proton.me">kayano04@proton.me</a>.</p>
+    </GenericPage>
+  );
+}
+
+function DataUsagePage() {
+  return (
+    <GenericPage title="Data Usage">
+      <p className="text-white/40 text-sm">Last updated: June 20, 2026</p>
+      <p>This page describes specifically how the prompts, code, and other content you send to OpenAchieve are handled.</p>
+
+      <H2>How Your Prompts &amp; Code Are Used</H2>
+      <p>To generate responses, the content you submit is transmitted to third-party model providers that process it on our behalf to fulfill your request. Processing is performed solely to produce the output you asked for.</p>
+
+      <H2>Training</H2>
+      <p>We do <strong className="text-white">not</strong> use your private code or prompts to train our own foundation models. Third-party providers process your requests under their own policies. If you bring your own keys or relays, that traffic is governed by the provider you choose.</p>
+
+      <H2>Retention</H2>
+      <p>Your conversations and sessions are stored to power features such as history, context compaction, and your dashboard. You can delete this data at any time.</p>
+
+      <H2>Telemetry</H2>
+      <p>Any diagnostics we collect are minimal and operational (for example, error signals and usage counts in credits). Telemetry does <strong className="text-white">not</strong> include the content of your prompts.</p>
+
+      <H2>Your Control</H2>
+      <p>You can review or delete your stored data, and you control provider configuration and permissions from within the agent. For data requests, contact <a className="text-blue-300 hover:text-blue-200 underline" href="mailto:kayano04@proton.me">kayano04@proton.me</a>.</p>
+    </GenericPage>
+  );
+}
+
 export default function App() {
   const [currentHash, setCurrentHash] = useState(window.location.hash);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -994,6 +1249,7 @@ export default function App() {
     localStorage.removeItem('oa_token');
     localStorage.removeItem('oa_user');
     setLoggedInUser(null);
+    navigate('#');
   };
 
   const handleMouseMove = (e) => {
@@ -1023,10 +1279,14 @@ export default function App() {
   const isDynamicPage = currentHash === '#dynamic';
   const isAuthPage = currentHash === '#auth';
   const isDashboardPage = currentHash === '#dashboard';
+  const isDocsPage = currentHash === '#docs';
+  const isTermsPage = currentHash === '#terms';
+  const isPrivacyPage = currentHash === '#privacy';
+  const isDataUsagePage = currentHash === '#data-usage';
   const isDevicePage = currentHash.startsWith('#device');
   const deviceCodeParam = (currentHash.match(/[?&]code=([^&]+)/) || [])[1];
   const initialDeviceCode = deviceCodeParam ? decodeURIComponent(deviceCodeParam) : '';
-  const isOverlayPage = isInstallPage || isPricingPage || isDynamicPage || isAuthPage || isDashboardPage || isDevicePage;
+  const isOverlayPage = isInstallPage || isPricingPage || isDynamicPage || isAuthPage || isDashboardPage || isDevicePage || isDocsPage || isTermsPage || isPrivacyPage || isDataUsagePage;
 
   return (
     <div 
@@ -1088,8 +1348,12 @@ export default function App() {
         {isPricingPage && <PricingPage loggedInUser={loggedInUser} />}
         {isDynamicPage && <DynamicPage />}
         {isAuthPage && <AuthPage onLoginSuccess={(user) => setLoggedInUser(user)} />}
-        {isDashboardPage && <DashboardPage user={loggedInUser} />}
+        {isDashboardPage && <DashboardPage user={loggedInUser} onLogout={handleLogout} />}
         {isDevicePage && <DevicePage loggedInUser={loggedInUser} initialCode={initialDeviceCode} />}
+        {isDocsPage && <DocsPage />}
+        {isTermsPage && <TermsPage />}
+        {isPrivacyPage && <PrivacyPage />}
+        {isDataUsagePage && <DataUsagePage />}
         {!isOverlayPage && <HomePage />}
       </div>
     </div>
