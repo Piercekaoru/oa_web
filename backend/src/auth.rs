@@ -27,6 +27,18 @@ pub struct VerifyRequest {
     pub code: String,
 }
 
+#[derive(Deserialize)]
+pub struct ForgotRequest {
+    pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResetRequest {
+    pub email: String,
+    pub code: String,
+    pub password: String,
+}
+
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub success: bool,
@@ -306,4 +318,112 @@ pub async fn login(
             name: user.name,
         }),
     })
+}
+
+/// POST /api/forgot-password — email a 6-digit reset code. Always returns the
+/// same success response so it can't be used to probe which emails are registered.
+pub async fn forgot_password(
+    state: web::Data<AppState>,
+    body: web::Json<ForgotRequest>,
+) -> HttpResponse {
+    let email = body.email.trim().to_lowercase();
+
+    match db::find_user_by_email(&state.db, &email).await {
+        Ok(Some(_)) => {
+            let code = format!("{:06}", rand::random::<u32>() % 1_000_000);
+            if let Err(e) = db::set_reset_code(&state.db, &email, &code).await {
+                eprintln!("DB error: {}", e);
+                return HttpResponse::InternalServerError().json(AuthResponse {
+                    success: false,
+                    message: "Internal server error.".into(),
+                    token: None,
+                    user: None,
+                });
+            }
+            if !state.resend_api_key.is_empty() {
+                let _ = email::send_password_reset_email(
+                    &state.resend_api_key,
+                    &state.resend_from,
+                    &email,
+                    &code,
+                )
+                .await;
+            } else {
+                println!("📧 Password reset code for {}: {} (email sending disabled)", email, code);
+            }
+        }
+        Ok(None) => {} // Do not reveal whether the account exists.
+        Err(e) => {
+            eprintln!("DB error: {}", e);
+            return HttpResponse::InternalServerError().json(AuthResponse {
+                success: false,
+                message: "Internal server error.".into(),
+                token: None,
+                user: None,
+            });
+        }
+    }
+
+    HttpResponse::Ok().json(AuthResponse {
+        success: true,
+        message: "If an account with that email exists, we've sent a reset code.".into(),
+        token: None,
+        user: None,
+    })
+}
+
+/// POST /api/reset-password — set a new password using a valid, unexpired code.
+pub async fn reset_password(
+    state: web::Data<AppState>,
+    body: web::Json<ResetRequest>,
+) -> HttpResponse {
+    let email = body.email.trim().to_lowercase();
+    let code = body.code.trim().to_string();
+    let password = &body.password;
+
+    if password.len() < 6 {
+        return HttpResponse::BadRequest().json(AuthResponse {
+            success: false,
+            message: "Password must be at least 6 characters.".into(),
+            token: None,
+            user: None,
+        });
+    }
+
+    let password_hash = match bcrypt::hash(password, bcrypt::DEFAULT_COST) {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("bcrypt error: {}", e);
+            return HttpResponse::InternalServerError().json(AuthResponse {
+                success: false,
+                message: "Internal server error.".into(),
+                token: None,
+                user: None,
+            });
+        }
+    };
+
+    match db::reset_password(&state.db, &email, &code, &password_hash).await {
+        Ok(true) => HttpResponse::Ok().json(AuthResponse {
+            success: true,
+            message: "Password reset. Please log in.".into(),
+            token: None,
+            user: None,
+        }),
+        Ok(false) => HttpResponse::BadRequest().json(AuthResponse {
+            success: false,
+            message: "Invalid or expired reset code.".into(),
+            token: None,
+            user: None,
+        }),
+        Err(e) => {
+            eprintln!("DB error: {}", e);
+            HttpResponse::InternalServerError().json(AuthResponse {
+                success: false,
+                message: "Internal server error.".into(),
+                token: None,
+                user: None,
+            })
+        }
+    }
 }

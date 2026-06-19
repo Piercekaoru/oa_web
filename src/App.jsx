@@ -550,6 +550,8 @@ function AuthPage({ onLoginSuccess }) {
   const isLogin = mode === 'login';
   const isRegister = mode === 'register';
   const isVerify = mode === 'verify';
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
 
   useEffect(() => {
     let ctx = gsap.context(() => {
@@ -617,7 +619,7 @@ function AuthPage({ onLoginSuccess }) {
         } else {
           setError(data.message || 'Registration failed.');
         }
-      } else {
+      } else if (isVerify) {
         const res = await fetch(`${API_BASE}/api/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -632,6 +634,36 @@ function AuthPage({ onLoginSuccess }) {
         } else {
           setError(data.message || 'Verification failed.');
         }
+      } else if (isForgot) {
+        const res = await fetch(`${API_BASE}/api/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setMode('reset');
+          setSuccess('If an account exists, a reset code was sent to your email.');
+        } else {
+          setError(data.message || 'Request failed.');
+        }
+      } else if (isReset) {
+        const res = await fetch(`${API_BASE}/api/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: code.trim(), password }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setMode('login');
+          setCode('');
+          setPassword('');
+          setSuccess('Password reset! Please log in.');
+        } else {
+          setError(data.message || 'Reset failed.');
+        }
       }
     } catch (err) {
       setError('Unable to connect to the server. Is the backend running?');
@@ -640,13 +672,25 @@ function AuthPage({ onLoginSuccess }) {
     }
   };
 
-  const heroWord = isLogin ? 'In' : 'Up';
+  const heroWord = isRegister ? 'Up' : 'In';
   const subtitle = isLogin
     ? 'Welcome back. Enter your credentials to access your agents and dynamic models.'
     : isRegister
       ? 'Create an account to unlock our cutting-edge multi-provider LLM workflows.'
-      : 'Check your email and enter the 6-digit code to finish signing up.';
-  const submitLabel = isLogin ? 'Log In' : isRegister ? 'Create Account' : 'Verify Email';
+      : isVerify
+        ? 'Check your email and enter the 6-digit code to finish signing up.'
+        : isForgot
+          ? "Forgot your password? Enter your email and we'll send you a reset code."
+          : 'Enter the code from your email and choose a new password.';
+  const submitLabel = isLogin
+    ? 'Log In'
+    : isRegister
+      ? 'Create Account'
+      : isVerify
+        ? 'Verify Email'
+        : isForgot
+          ? 'Send Reset Code'
+          : 'Reset Password';
 
   return (
     <div ref={containerRef} className="mt-8 md:mt-20 relative z-20 flex flex-col md:flex-row items-center justify-center pb-32 gap-16 lg:gap-24 xl:gap-40 w-full max-w-6xl mx-auto flex-1 h-full">
@@ -678,8 +722,13 @@ function AuthPage({ onLoginSuccess }) {
           </div>
         )}
         {success && (
-          <div className="relative z-10 mb-6 text-green-400 text-sm bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-            {success}
+          <div className="relative z-10 mb-8 flex items-center justify-center gap-3 px-6 py-4 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30">
+              <Check className="w-3.5 h-3.5 text-blue-400" />
+            </div>
+            <span className="text-white/90 text-[14px] font-medium tracking-wide">
+              {success}
+            </span>
           </div>
         )}
 
@@ -697,14 +746,14 @@ function AuthPage({ onLoginSuccess }) {
             </div>
           )}
 
-          {isVerify ? (
+          {isVerify || isReset ? (
             <>
               <div className="flex flex-col">
                 <label className="text-white/60 text-xs font-mono tracking-widest uppercase mb-2">Email Address</label>
                 <div className="text-white text-lg font-light border-b border-white/15 pb-2 truncate">{email}</div>
               </div>
               <div className="flex flex-col group">
-                <label className="text-white/60 text-xs font-mono tracking-widest uppercase mb-2 group-focus-within:text-blue-400 transition-colors">Verification Code</label>
+                <label className="text-white/60 text-xs font-mono tracking-widest uppercase mb-2 group-focus-within:text-blue-400 transition-colors">{isReset ? 'Reset Code' : 'Verification Code'}</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -715,6 +764,18 @@ function AuthPage({ onLoginSuccess }) {
                   className="bg-transparent border-b border-white/30 pb-2 text-white text-2xl font-mono tracking-[0.4em] focus:outline-none focus:border-blue-400 transition-colors placeholder:text-white/20"
                 />
               </div>
+              {isReset && (
+                <div className="flex flex-col group">
+                  <label className="text-white/60 text-xs font-mono tracking-widest uppercase mb-2 group-focus-within:text-blue-400 transition-colors">New Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-transparent border-b border-white/30 pb-2 text-white text-lg tracking-widest focus:outline-none focus:border-blue-400 transition-colors placeholder:text-white/20"
+                  />
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -729,19 +790,21 @@ function AuthPage({ onLoginSuccess }) {
                 />
               </div>
 
-              <div className="flex flex-col group">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-white/60 text-xs font-mono tracking-widest uppercase group-focus-within:text-blue-400 transition-colors">Password</label>
-                  {isLogin && <a href="#" className="text-white/40 text-xs hover:text-white transition-colors">Forgot?</a>}
+              {!isForgot && (
+                <div className="flex flex-col group">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-white/60 text-xs font-mono tracking-widest uppercase group-focus-within:text-blue-400 transition-colors">Password</label>
+                    {isLogin && <a href="#" onClick={switchMode('forgot')} className="text-white/40 text-xs hover:text-white transition-colors">Forgot?</a>}
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-transparent border-b border-white/30 pb-2 text-white text-lg tracking-widest focus:outline-none focus:border-blue-400 transition-colors placeholder:text-white/20"
+                  />
                 </div>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-transparent border-b border-white/30 pb-2 text-white text-lg tracking-widest focus:outline-none focus:border-blue-400 transition-colors placeholder:text-white/20"
-                />
-              </div>
+              )}
             </>
           )}
 
@@ -765,7 +828,7 @@ function AuthPage({ onLoginSuccess }) {
         </form>
 
         <div className="mt-8 text-center relative z-10">
-          {isVerify ? (
+          {(isVerify || isForgot || isReset) ? (
             <button onClick={switchMode('login')} className="text-white/40 text-sm hover:text-white transition-colors">
               Back to log in
             </button>

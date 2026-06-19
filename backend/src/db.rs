@@ -80,6 +80,9 @@ pub async fn init_db(client: &Client) -> Result<(), tokio_postgres::Error> {
                 revoked    BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_code TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires_at TIMESTAMPTZ;
             ",
         )
         .await?;
@@ -180,6 +183,42 @@ pub async fn verify_user(client: &Client, email: &str) -> Result<u64, tokio_post
         .await?;
 
     Ok(rows_affected)
+}
+
+/// Store a password-reset code valid for 30 minutes (overwriting any prior one).
+pub async fn set_reset_code(
+    client: &Client,
+    email: &str,
+    code: &str,
+) -> Result<u64, tokio_postgres::Error> {
+    client
+        .execute(
+            "UPDATE users
+             SET reset_code = $2, reset_expires_at = NOW() + INTERVAL '30 minutes'
+             WHERE email = $1",
+            &[&email, &code],
+        )
+        .await
+}
+
+/// Reset the password if the code matches and hasn't expired. Single statement so
+/// the check and update can't drift; clears the code and marks the email verified
+/// (the user proved control of it). Returns false if the code is wrong/expired.
+pub async fn reset_password(
+    client: &Client,
+    email: &str,
+    code: &str,
+    new_hash: &str,
+) -> Result<bool, tokio_postgres::Error> {
+    let rows = client
+        .execute(
+            "UPDATE users
+             SET password_hash = $3, verified = TRUE, reset_code = NULL, reset_expires_at = NULL
+             WHERE email = $1 AND reset_code = $2 AND reset_expires_at > NOW()",
+            &[&email, &code, &new_hash],
+        )
+        .await?;
+    Ok(rows > 0)
 }
 
 // ─── Subscriptions & credits ───

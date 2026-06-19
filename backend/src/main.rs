@@ -112,6 +112,8 @@ async fn main() -> std::io::Result<()> {
             .route("/api/register", web::post().to(auth::register))
             .route("/api/verify", web::post().to(auth::verify))
             .route("/api/login", web::post().to(auth::login))
+            .route("/api/forgot-password", web::post().to(auth::forgot_password))
+            .route("/api/reset-password", web::post().to(auth::reset_password))
             .route("/api/auth/device/code", web::post().to(auth_device::device_code))
             .route("/api/auth/device/approve", web::post().to(auth_device::approve))
             .route("/api/auth/token", web::post().to(auth_device::token))
