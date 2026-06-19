@@ -427,10 +427,11 @@ function DynamicPage() {
   return (
     <div ref={containerRef} className="mt-16 md:mt-32 relative z-20 flex flex-col pb-32">
 
-      {/* Coming Soon badge */}
-      <div className="dynamic-anim inline-flex items-center gap-2 self-start mb-6 px-4 py-2 rounded-full border border-blue-400/30 bg-blue-500/10">
-        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-        <span className="text-blue-300 text-sm font-medium tracking-widest uppercase">Coming Soon</span>
+      {/* Coming Soon Text */}
+      <div className="dynamic-anim self-start mb-6">
+        <p className="text-transparent bg-clip-text bg-gradient-to-r from-white/30 via-white/50 to-white/30 text-[13px] font-light tracking-[0.5em] uppercase">
+          — Coming Soon
+        </p>
       </div>
 
       {/* Massive Typography Hero */}
