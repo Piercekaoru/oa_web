@@ -92,13 +92,14 @@ async fn mark_order_paid_is_idempotent() {
     let order = db::create_payment_order(&c, &uid, "pro", 10_000, "fovpay")
         .await
         .unwrap();
+    let prov = format!("prov-{}", Uuid::new_v4());
 
     assert!(
-        db::mark_order_paid(&c, &order, "prov-1").await.unwrap(),
+        db::mark_order_paid(&c, &order, &prov).await.unwrap(),
         "first callback flips pending -> paid"
     );
     assert!(
-        !db::mark_order_paid(&c, &order, "prov-1").await.unwrap(),
+        !db::mark_order_paid(&c, &order, &prov).await.unwrap(),
         "duplicate callback is a no-op (no double grant)"
     );
 }
@@ -193,6 +194,7 @@ async fn checkout_rejects_downgrade_for_active_max() {
         frontend_base_url: "http://localhost".into(),
         public_base_url: "http://localhost".into(),
         usd_cny_rate: 7.2,
+        google_client_id: String::new(),
     };
 
     let app = test::init_service(
@@ -210,4 +212,63 @@ async fn checkout_rejects_downgrade_for_active_max() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn google_user_is_created_then_linked() {
+    let Some(c) = connect().await else { return };
+    let email = format!("g-{}@example.com", Uuid::new_v4());
+
+    // First sign-in creates a passwordless, pre-verified account.
+    let u1 = db::find_or_create_google_user(&c, &email, "G User", "sub-1")
+        .await
+        .unwrap();
+    assert!(u1.password_hash.is_none(), "Google accounts have no password");
+    assert!(u1.verified);
+
+    // Second sign-in with the same email links to the same account.
+    let u2 = db::find_or_create_google_user(&c, &email, "G User", "sub-1")
+        .await
+        .unwrap();
+    assert_eq!(u1.id, u2.id);
+}
+
+#[actix_web::test]
+async fn login_rejects_passwordless_google_account() {
+    use actix_web::{http::StatusCode, test, web, App};
+
+    let Some(c) = connect().await else { return };
+    let email = format!("g-{}@example.com", Uuid::new_v4());
+    db::find_or_create_google_user(&c, &email, "G User", "sub-x")
+        .await
+        .unwrap();
+
+    let state = crate::AppState {
+        db: c,
+        jwt_secret: "test-secret".into(),
+        resend_api_key: String::new(),
+        resend_from: String::new(),
+        openrouter_api_key: String::new(),
+        cpa_base_url: String::new(),
+        cpa_api_key: String::new(),
+        fovpay_pid: String::new(),
+        fovpay_key: String::new(),
+        frontend_base_url: "http://localhost".into(),
+        public_base_url: "http://localhost".into(),
+        usd_cny_rate: 7.2,
+        google_client_id: String::new(),
+    };
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(state))
+            .route("/api/login", web::post().to(crate::auth::login)),
+    )
+    .await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/login")
+        .set_json(serde_json::json!({ "email": email, "password": "anything" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }

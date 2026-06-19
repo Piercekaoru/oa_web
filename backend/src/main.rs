@@ -30,6 +30,7 @@ pub struct AppState {
     pub frontend_base_url: String,
     pub public_base_url: String,
     pub usd_cny_rate: f64,
+    pub google_client_id: String,
 }
 
 #[actix_web::main]
@@ -56,6 +57,7 @@ async fn main() -> std::io::Result<()> {
         .ok()
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(7.20);
+    let google_client_id = std::env::var("GOOGLE_CLIENT_ID").unwrap_or_default();
 
     // Connect to PostgreSQL with retry logic
     let client = connect_with_retry(&database_url, 10).await;
@@ -80,6 +82,7 @@ async fn main() -> std::io::Result<()> {
         frontend_base_url,
         public_base_url,
         usd_cny_rate,
+        google_client_id,
     });
 
     let cors_origins: Vec<String> = match std::env::var("CORS_ALLOWED_ORIGINS") {
@@ -115,6 +118,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/register", web::post().to(auth::register))
             .route("/api/verify", web::post().to(auth::verify))
             .route("/api/login", web::post().to(auth::login))
+            .route("/api/auth/google", web::post().to(auth::google_login))
             .route("/api/forgot-password", web::post().to(auth::forgot_password))
             .route("/api/reset-password", web::post().to(auth::reset_password))
             .route("/api/auth/device/code", web::post().to(auth_device::device_code))

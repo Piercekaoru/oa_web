@@ -10,6 +10,7 @@ export function cn(...inputs) {
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const navigate = (hash) => { window.location.hash = hash; };
 
@@ -561,6 +562,7 @@ function AuthPage({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const containerRef = useRef(null);
+  const googleBtnRef = useRef(null);
 
   const isLogin = mode === 'login';
   const isRegister = mode === 'register';
@@ -591,6 +593,70 @@ function AuthPage({ onLoginSuccess }) {
     setSuccess('');
   };
 
+  const completeLogin = (data) => {
+    localStorage.setItem('oa_token', data.token);
+    localStorage.setItem('oa_user', JSON.stringify(data.user));
+    setSuccess('Login successful! Redirecting...');
+    setTimeout(() => {
+      if (onLoginSuccess) onLoginSuccess(data.user);
+      window.location.hash = '';
+    }, 800);
+  };
+
+  const handleGoogleCredential = async (response) => {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) completeLogin(data);
+      else setError(data.message || 'Google sign-in failed.');
+    } catch {
+      setError('Unable to connect to the server. Is the backend running?');
+    }
+  };
+
+  // Render the Google Identity Services button on the login/register screens.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !(isLogin || isRegister)) return;
+    let cancelled = false;
+    const render = () => {
+      if (cancelled || !window.google?.accounts?.id || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'filled_black',
+        size: 'large',
+        shape: 'pill',
+        text: 'continue_with',
+        width: 320,
+      });
+    };
+    if (window.google?.accounts?.id) {
+      render();
+    } else {
+      let s = document.getElementById('gis-script');
+      if (!s) {
+        s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.id = 'gis-script';
+        s.onload = render;
+        document.head.appendChild(s);
+      } else {
+        s.addEventListener('load', render);
+      }
+    }
+    return () => { cancelled = true; };
+  }, [mode]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -607,13 +673,7 @@ function AuthPage({ onLoginSuccess }) {
         const data = await res.json();
 
         if (data.success && data.token) {
-          localStorage.setItem('oa_token', data.token);
-          localStorage.setItem('oa_user', JSON.stringify(data.user));
-          setSuccess('Login successful! Redirecting...');
-          setTimeout(() => {
-            if (onLoginSuccess) onLoginSuccess(data.user);
-            window.location.hash = '';
-          }, 800);
+          completeLogin(data);
         } else if (res.status === 403 && /verif/i.test(data.message || '')) {
           setMode('verify');
           setSuccess('Please enter the verification code sent to your email.');
@@ -841,6 +901,17 @@ function AuthPage({ onLoginSuccess }) {
             )}
           </button>
         </form>
+
+        {GOOGLE_CLIENT_ID && (isLogin || isRegister) && (
+          <div className="relative z-10 mt-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="h-px bg-white/10 flex-1" />
+              <span className="text-white/30 text-xs uppercase tracking-widest">or</span>
+              <div className="h-px bg-white/10 flex-1" />
+            </div>
+            <div ref={googleBtnRef} className="flex justify-center" />
+          </div>
+        )}
 
         <div className="mt-8 text-center relative z-10">
           {(isVerify || isForgot || isReset) ? (

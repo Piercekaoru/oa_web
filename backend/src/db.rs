@@ -83,6 +83,8 @@ pub async fn init_db(client: &Client) -> Result<(), tokio_postgres::Error> {
 
             ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_code TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+            ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
             ",
         )
         .await?;
@@ -146,7 +148,7 @@ pub struct UserRow {
     pub id: String,
     pub email: String,
     pub name: String,
-    pub password_hash: String,
+    pub password_hash: Option<String>,
     pub verified: bool,
     pub verification_code: Option<String>,
 }
@@ -171,6 +173,43 @@ pub async fn find_user_by_email(
         verified: r.get(4),
         verification_code: r.get(5),
     }))
+}
+
+/// Find a user by email, or create a Google-authenticated account (no password,
+/// pre-verified). Existing accounts are linked by their already-verified email.
+pub async fn find_or_create_google_user(
+    client: &Client,
+    email: &str,
+    name: &str,
+    google_sub: &str,
+) -> Result<UserRow, tokio_postgres::Error> {
+    if let Some(existing) = find_user_by_email(client, email).await? {
+        client
+            .execute(
+                "UPDATE users SET google_sub = $2 WHERE id = $1 AND google_sub IS NULL",
+                &[&existing.id, &google_sub],
+            )
+            .await?;
+        return Ok(existing);
+    }
+
+    let id = Uuid::new_v4().to_string();
+    client
+        .execute(
+            "INSERT INTO users (id, email, name, password_hash, verified, google_sub)
+             VALUES ($1, $2, $3, NULL, TRUE, $4)",
+            &[&id, &email, &name, &google_sub],
+        )
+        .await?;
+
+    Ok(UserRow {
+        id,
+        email: email.to_string(),
+        name: name.to_string(),
+        password_hash: None,
+        verified: true,
+        verification_code: None,
+    })
 }
 
 /// Mark a user as verified and clear the verification code.

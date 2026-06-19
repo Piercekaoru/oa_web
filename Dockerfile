@@ -8,6 +8,8 @@ RUN npm install
 COPY . .
 ARG VITE_API_BASE
 ENV VITE_API_BASE=$VITE_API_BASE
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
 # ── Stage 2: Serve via lightweight Node server ──

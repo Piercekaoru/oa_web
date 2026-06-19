@@ -39,6 +39,11 @@ pub struct ResetRequest {
     pub password: String,
 }
 
+#[derive(Deserialize)]
+pub struct GoogleRequest {
+    pub credential: String,
+}
+
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub success: bool,
@@ -274,7 +279,17 @@ pub async fn login(
     };
 
     // Verify password
-    let password_matches = bcrypt::verify(password, &user.password_hash).unwrap_or(false);
+    let password_matches = match &user.password_hash {
+        Some(hash) => bcrypt::verify(password, hash).unwrap_or(false),
+        None => {
+            return HttpResponse::Unauthorized().json(AuthResponse {
+                success: false,
+                message: "This account uses Google sign-in.".into(),
+                token: None,
+                user: None,
+            });
+        }
+    };
     if !password_matches {
         return HttpResponse::Unauthorized().json(AuthResponse {
             success: false,
@@ -425,5 +440,165 @@ pub async fn reset_password(
                 user: None,
             })
         }
+    }
+}
+
+fn google_unauthorized() -> HttpResponse {
+    HttpResponse::Unauthorized().json(AuthResponse {
+        success: false,
+        message: "Google sign-in failed.".into(),
+        token: None,
+        user: None,
+    })
+}
+
+/// Validate a Google `tokeninfo` response against our client id and extract the
+/// identity. Pure (no I/O) so it can be unit-tested. `email_verified` may be a
+/// JSON string ("true") or a bool depending on the endpoint.
+pub fn parse_google_claims(
+    body: &serde_json::Value,
+    expected_aud: &str,
+) -> Option<(String, String, String)> {
+    if body.get("aud").and_then(|v| v.as_str())? != expected_aud {
+        return None;
+    }
+    let email_verified = match body.get("email_verified") {
+        Some(serde_json::Value::String(s)) => s == "true",
+        Some(serde_json::Value::Bool(b)) => *b,
+        _ => false,
+    };
+    if !email_verified {
+        return None;
+    }
+    let email = body.get("email").and_then(|v| v.as_str())?.trim().to_lowercase();
+    if email.is_empty() {
+        return None;
+    }
+    let sub = body.get("sub").and_then(|v| v.as_str())?.to_string();
+    let name = body
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
+    Some((email, name, sub))
+}
+
+/// POST /api/auth/google — verify a Google ID token (credential) and sign in,
+/// creating or linking the account by its verified email.
+pub async fn google_login(
+    state: web::Data<AppState>,
+    body: web::Json<GoogleRequest>,
+) -> HttpResponse {
+    if state.google_client_id.is_empty() {
+        return HttpResponse::ServiceUnavailable().json(AuthResponse {
+            success: false,
+            message: "Google sign-in is not configured.".into(),
+            token: None,
+            user: None,
+        });
+    }
+
+    let url = format!(
+        "https://oauth2.googleapis.com/tokeninfo?id_token={}",
+        body.credential
+    );
+    let resp = match reqwest::Client::new().get(&url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        Ok(_) => return google_unauthorized(),
+        Err(e) => {
+            eprintln!("google tokeninfo error: {}", e);
+            return google_unauthorized();
+        }
+    };
+    let claims: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(_) => return google_unauthorized(),
+    };
+    let (email, name, sub) = match parse_google_claims(&claims, &state.google_client_id) {
+        Some(t) => t,
+        None => return google_unauthorized(),
+    };
+
+    let user = match db::find_or_create_google_user(&state.db, &email, &name, &sub).await {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("DB error: {}", e);
+            return HttpResponse::InternalServerError().json(AuthResponse {
+                success: false,
+                message: "Internal server error.".into(),
+                token: None,
+                user: None,
+            });
+        }
+    };
+
+    let token = match issue_jwt(&state.jwt_secret, &user.id, &user.email, &user.name, 7) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("JWT error: {}", e);
+            return HttpResponse::InternalServerError().json(AuthResponse {
+                success: false,
+                message: "Failed to generate token.".into(),
+                token: None,
+                user: None,
+            });
+        }
+    };
+
+    HttpResponse::Ok().json(AuthResponse {
+        success: true,
+        message: "Login successful.".into(),
+        token: Some(token),
+        user: Some(UserInfo {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+        }),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_google_claims_accepts_valid_token() {
+        let body = json!({
+            "aud": "client-123",
+            "email": "User@Example.com",
+            "email_verified": "true",
+            "sub": "g-sub-1",
+            "name": "User"
+        });
+        let (email, name, sub) = parse_google_claims(&body, "client-123").unwrap();
+        assert_eq!(email, "user@example.com"); // normalized to lowercase
+        assert_eq!(name, "User");
+        assert_eq!(sub, "g-sub-1");
+    }
+
+    #[test]
+    fn parse_google_claims_rejects_wrong_aud() {
+        let body = json!({ "aud": "someone-else", "email": "a@b.com", "email_verified": "true", "sub": "x" });
+        assert!(parse_google_claims(&body, "client-123").is_none());
+    }
+
+    #[test]
+    fn parse_google_claims_rejects_unverified_email() {
+        let body = json!({ "aud": "client-123", "email": "a@b.com", "email_verified": "false", "sub": "x" });
+        assert!(parse_google_claims(&body, "client-123").is_none());
+    }
+
+    #[test]
+    fn parse_google_claims_requires_email() {
+        let body = json!({ "aud": "client-123", "email_verified": true, "sub": "x" });
+        assert!(parse_google_claims(&body, "client-123").is_none());
+    }
+
+    #[test]
+    fn parse_google_claims_defaults_name_to_email_local_part() {
+        let body = json!({ "aud": "client-123", "email": "alice@example.com", "email_verified": true, "sub": "x" });
+        let (_, name, _) = parse_google_claims(&body, "client-123").unwrap();
+        assert_eq!(name, "alice");
     }
 }
