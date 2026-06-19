@@ -255,6 +255,35 @@ pub async fn grant_period(
     Ok(())
 }
 
+/// Upgrade an active subscription to Max in place: add `delta_credits` and flip
+/// the plan to "max" while keeping the current period. Returns false if the user
+/// has no active subscription to upgrade (caller decides on a fallback).
+pub async fn upgrade_to_max(
+    client: &Client,
+    user_id: &str,
+    delta_credits: i32,
+) -> Result<bool, tokio_postgres::Error> {
+    let ledger_id = Uuid::new_v4().to_string();
+    let row = client
+        .query_opt(
+            "WITH upd AS (
+                UPDATE subscriptions
+                SET plan = 'max',
+                    credits_remaining = credits_remaining + $2,
+                    credits_granted = credits_granted + $2,
+                    updated_at = NOW()
+                WHERE user_id = $1 AND status = 'active'
+                RETURNING credits_remaining
+             )
+             INSERT INTO credit_ledger (id, user_id, delta, reason, balance_after)
+             SELECT $3, $1, $2, 'upgrade', credits_remaining FROM upd
+             RETURNING balance_after",
+            &[&user_id, &delta_credits, &ledger_id],
+        )
+        .await?;
+    Ok(row.is_some())
+}
+
 /// Mark an expired subscription's credits as zeroed (no rollover) without
 /// granting a new period. Returns the post-expiry remaining credits (0).
 pub async fn expire_subscription(

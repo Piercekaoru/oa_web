@@ -31,6 +31,21 @@ pub async fn grant_plan(
     user_id: &str,
     plan_key: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Pro -> Max upgrade: a second ≤¥1000 payment that tops up the credit delta
+    // and flips the plan to Max, keeping the existing period (no reset).
+    if plan_key == "max_upgrade" {
+        let pro = plans::find("pro").ok_or("missing pro plan")?;
+        let max = plans::find("max").ok_or("missing max plan")?;
+        let delta = max.credits - pro.credits;
+        if !db::upgrade_to_max(client, user_id, delta).await? {
+            // No active subscription at fulfillment (Pro lapsed between checkout
+            // and payment — very rare). Grant a fresh Max period worth the delta
+            // so the payment still yields value.
+            db::grant_period(client, user_id, "max", delta).await?;
+        }
+        return Ok(());
+    }
+
     let plan = plans::find(plan_key).ok_or_else(|| format!("unknown plan: {}", plan_key))?;
     db::grant_period(client, user_id, plan.key, plan.credits).await?;
     Ok(())

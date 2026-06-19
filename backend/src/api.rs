@@ -45,19 +45,46 @@ pub async fn checkout(
     req: HttpRequest,
     body: web::Json<CheckoutRequest>,
 ) -> HttpResponse {
-    let plan = match plans::find(&body.plan) {
-        Some(p) if p.price_cents > 0 => p,
-        _ => {
+    // Resolve the order's plan key, USD price, and subject. "max_upgrade" is a
+    // synthetic order type: an active Pro pays the Max−Pro delta ($100 → ¥720,
+    // under FovPay's ¥1000 channel limit) to upgrade in place.
+    let (order_plan, price_cents, subject): (&str, i32, String) = if body.plan == "max_upgrade" {
+        let sub = match credits::current(&state.db, &user.id).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("DB error: {}", e);
+                return HttpResponse::InternalServerError().json(json!({ "success": false }));
+            }
+        };
+        if !matches!(&sub, Some(s) if s.status == "active" && s.plan == "pro") {
             return HttpResponse::BadRequest()
-                .json(json!({ "success": false, "message": "Invalid plan." }))
+                .json(json!({ "success": false, "message": "请先订阅 Pro 再升级 Max。" }));
+        }
+        match (plans::find("pro"), plans::find("max")) {
+            (Some(pro), Some(max)) => (
+                "max_upgrade",
+                max.price_cents - pro.price_cents,
+                "OpenAchieve Max upgrade".to_string(),
+            ),
+            _ => return HttpResponse::InternalServerError().json(json!({ "success": false })),
+        }
+    } else {
+        match plans::find(&body.plan) {
+            Some(p) if p.price_cents > 0 => {
+                (p.key, p.price_cents, format!("OpenAchieve {} plan", p.key))
+            }
+            _ => {
+                return HttpResponse::BadRequest()
+                    .json(json!({ "success": false, "message": "Invalid plan." }))
+            }
         }
     };
 
     let order_id = match db::create_payment_order(
         &state.db,
         &user.id,
-        plan.key,
-        plan.price_cents,
+        order_plan,
+        price_cents,
         payment::PROVIDER,
     )
     .await
@@ -70,8 +97,7 @@ pub async fn checkout(
     };
 
     // Plans are priced in USD; FovPay settles in CNY. Convert at the configured rate.
-    let total_amount = format!("{:.2}", (plan.price_cents as f64 / 100.0) * state.usd_cny_rate);
-    let subject = format!("OpenAchieve {} plan", plan.key);
+    let total_amount = format!("{:.2}", (price_cents as f64 / 100.0) * state.usd_cny_rate);
     let paytype = body.paytype.clone().unwrap_or_else(|| "alipay".to_string());
     let notify_url = format!("{}/api/webhooks/payment", state.public_base_url.trim_end_matches('/'));
     let return_url = format!("{}/#dashboard", state.frontend_base_url.trim_end_matches('/'));

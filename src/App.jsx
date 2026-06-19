@@ -257,6 +257,16 @@ function InstallPage() {
 function PricingPage({ loggedInUser }) {
   const containerRef = useRef(null);
   const [pending, setPending] = useState(null);
+  const [currentPlan, setCurrentPlan] = useState(null);
+
+  useEffect(() => {
+    if (!loggedInUser) { setCurrentPlan(null); return; }
+    const token = localStorage.getItem('oa_token');
+    fetch(`${API_BASE}/api/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setCurrentPlan(d.subscription?.plan || 'free'); })
+      .catch(() => {});
+  }, [loggedInUser]);
 
   useEffect(() => {
     let ctx = gsap.context(() => {
@@ -278,7 +288,7 @@ function PricingPage({ loggedInUser }) {
     { key: "free", name: "Free", price: "$0", desc: "Bring Your Own Key (BYOK) to get started instantly." },
     { key: "plus", name: "Plus", price: "$20", desc: "Includes 2,000 credits for daily tasks with standard models." },
     { key: "pro", name: "Pro", price: "$100", desc: "Includes 10,000 credits for heavy professional workflows." },
-    { key: "max", name: "Max", price: "$200", desc: "Includes 20,000 credits and exclusive access to our dynamic fusion models.", glow: true, available: false }
+    { key: "max", name: "Max", price: "$200", desc: "Includes 20,000 credits and exclusive access to our dynamic fusion models.", glow: true }
   ];
 
   const pollOrder = async (orderId, token) => {
@@ -345,7 +355,26 @@ function PricingPage({ loggedInUser }) {
 
       {/* Pricing Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
-        {tiers.map((tier, i) => (
+        {tiers.map((tier, i) => {
+          const isMax = tier.key === 'max';
+          const isPro = currentPlan === 'pro';
+          const canUpgrade = isMax && isPro;   // Pro 用户:+$100 升级到 Max
+          const maxGuide = isMax && !isPro;     // 非 Pro:引导先订 Pro
+          const activeKey = canUpgrade ? 'max_upgrade' : tier.key;
+          const isPendingThis = pending === activeKey;
+          const handleClick = () => {
+            if (canUpgrade) return handleSubscribe({ key: 'max_upgrade', name: 'Max' });
+            if (maxGuide) return handleSubscribe(tiers.find((t) => t.key === 'pro'));
+            return handleSubscribe(tier);
+          };
+          const label = isPendingThis
+            ? "Waiting for payment..."
+            : canUpgrade
+              ? "Upgrade · +$100"
+              : maxGuide
+                ? "Subscribe Pro first"
+                : tier.price === "$0" ? "Start Free" : "Subscribe";
+          return (
           <div key={i} className={cn(
             "pricing-anim relative flex flex-col justify-between p-8 md:p-10 rounded-[2rem] border transition-all duration-500 group",
             tier.glow
@@ -361,30 +390,34 @@ function PricingPage({ loggedInUser }) {
                 <span className="text-white text-6xl md:text-7xl font-medium tracking-tight">{tier.price}</span>
                 <span className="text-white/40 text-lg ml-2">/mo</span>
               </div>
-              <p className="text-white/60 text-lg font-light leading-relaxed mb-12">
+              <p className={cn("text-white/60 text-lg font-light leading-relaxed", isMax ? "mb-4" : "mb-12")}>
                 {tier.desc}
               </p>
+              {isMax && (
+                <p className="text-blue-300/70 text-sm font-light leading-relaxed mb-12">
+                  {canUpgrade
+                    ? "You're on Pro — add $100 to upgrade to Max."
+                    : "Subscribe to Pro first, then add $100 to upgrade to Max."}
+                </p>
+              )}
             </div>
 
             <button
-              onClick={() => handleSubscribe(tier)}
-              disabled={pending === tier.key || tier.available === false}
+              onClick={handleClick}
+              disabled={isPendingThis}
               className={cn(
               "w-full py-4 rounded-full font-medium transition-all duration-300 flex justify-center items-center gap-2 group-hover:gap-4",
               tier.glow
                 ? "bg-blue-500 text-white hover:bg-blue-400 shadow-lg"
                 : "bg-white/10 text-white hover:bg-white hover:text-black",
-              (pending === tier.key || tier.available === false) && "opacity-60 cursor-not-allowed"
+              isPendingThis && "opacity-60 cursor-not-allowed"
             )}>
-              {tier.available === false
-                ? "Coming Soon"
-                : pending === tier.key
-                  ? "Waiting for payment..."
-                  : tier.price === "$0" ? "Start Free" : "Subscribe"}
-              {tier.available !== false && pending !== tier.key && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
+              {label}
+              {!isPendingThis && <ArrowUpRight className="w-5 h-5 stroke-[2]" />}
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
