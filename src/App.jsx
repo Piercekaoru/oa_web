@@ -3,7 +3,7 @@ import { ArrowUpRight, Menu, X, Copy, Check, Terminal, Bot, Network, Sparkles } 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import gsap from 'gsap';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -81,31 +81,39 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, currentHash, loggedInUs
         </button>
       </header>
 
-      {isMobileMenuOpen && (
-        <div className="absolute top-[80px] left-6 right-6 z-50 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col gap-4 animate-in fade-in zoom-in duration-200 shadow-2xl">
-          {['About', 'Install', 'Pricing', 'Dynamic'].map((item) => (
-            <a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              className="text-white text-lg font-medium hover:text-white/70"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {item}
-            </a>
-          ))}
-          {loggedInUser && (
-            <a href="#dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-white/70">
-              Dashboard
-            </a>
-          )}
-          {!loggedInUser && (
-            <a href="#auth" onClick={() => setIsMobileMenuOpen(false)} className="mt-4 flex items-center justify-center gap-2 bg-[#4B66D1] text-white rounded-full px-6 py-3 text-[16px] font-medium w-full">
-              Sign Up / Log In
-              <ArrowUpRight className="w-4 h-4 stroke-[2]" />
-            </a>
-          )}
-        </div>
-      )}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute top-[80px] left-6 right-6 z-50 bg-[#0a0a0a]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 flex flex-col gap-4 shadow-2xl origin-top"
+          >
+            {['About', 'Install', 'Pricing', 'Dynamic'].map((item) => (
+              <a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="text-white/80 text-xl font-medium hover:text-white transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {item}
+              </a>
+            ))}
+            {loggedInUser && (
+              <a href="#dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-white/80 text-xl font-medium hover:text-white transition-colors">
+                Dashboard
+              </a>
+            )}
+            {!loggedInUser && (
+              <a href="#auth" onClick={() => setIsMobileMenuOpen(false)} className="mt-4 flex items-center justify-center gap-2 bg-[#4B66D1] hover:bg-[#3B54B4] text-white rounded-full px-6 py-3.5 text-[16px] font-medium w-full transition-colors shadow-lg">
+                Sign Up / Log In
+                <ArrowUpRight className="w-4 h-4 stroke-[2]" />
+              </a>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
