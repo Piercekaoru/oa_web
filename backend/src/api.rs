@@ -269,7 +269,7 @@ pub async fn chat_completions(
     let model = body.get("model").and_then(|v| v.as_str()).unwrap_or("");
     if !plans::model_allowed(&sub.plan, model) {
         return HttpResponse::Forbidden()
-            .json(json!({ "error": "This model requires the Max plan." }));
+            .json(json!({ "error": "This model is not available on your plan." }));
     }
 
     // 3. Pick the upstream: CPA models go to the CPA proxy (charged by token),

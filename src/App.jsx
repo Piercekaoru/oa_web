@@ -288,7 +288,7 @@ function PricingPage({ loggedInUser }) {
   const containerRef = useRef(null);
   const [pending, setPending] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
-  const RANK = { free: 0, plus: 1, pro: 2, max: 3 };
+  const RANK = { free: 0, go: 1, plus: 2, pro: 3, max: 4 };
   const curRank = RANK[currentPlan] ?? 0;
 
   useEffect(() => {
@@ -318,6 +318,7 @@ function PricingPage({ loggedInUser }) {
 
   const tiers = [
     { key: "free", name: "Free", price: "$0", desc: "Bring Your Own Key (BYOK) to get started instantly." },
+    { key: "go", name: "Go", price: "$3", desc: "Includes 1,000 credits, limited to our fast CPA coding models (e.g. Composer)." },
     { key: "plus", name: "Plus", price: "$20", desc: "Includes 2,000 credits for daily tasks with standard models." },
     { key: "pro", name: "Pro", price: "$100", desc: "Includes 10,000 credits for heavy professional workflows." },
     { key: "max", name: "Max", price: "$200", desc: "Includes 20,000 credits and exclusive access to our dynamic fusion models.", glow: true }
@@ -386,7 +387,7 @@ function PricingPage({ loggedInUser }) {
       </div>
 
       {/* Pricing Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 w-full">
         {tiers.map((tier, i) => {
           const isMax = tier.key === 'max';
           const isFree = tier.key === 'free';
@@ -1196,6 +1197,7 @@ oa`}</Cmd>
       <H2>Subscription &amp; Credits</H2>
       <p>Paid plans grant a monthly allotment of credits; every model request draws from that balance. Credits are valid for the 30-day billing period and do not roll over.</p>
       <ul className="list-disc pl-5 space-y-1">
+        <li><strong className="text-white">Go</strong> — a $3 entry tier with 1,000 credits, limited to our fast CPA coding models.</li>
         <li><strong className="text-white">Plus / Pro / Max</strong> — increasing monthly credits. See <a className="text-blue-300 hover:text-blue-200 underline" href="#pricing">Pricing</a>.</li>
         <li><strong className="text-white">Max</strong> unlocks our Dynamic fusion models. Already on Pro? Upgrade to Max for an additional $100 from the pricing page.</li>
       </ul>

@@ -215,6 +215,63 @@ async fn checkout_rejects_downgrade_for_active_max() {
 }
 
 #[tokio::test]
+async fn go_plan_grants_1000_credits() {
+    let Some(c) = connect().await else { return };
+    let uid = make_user(&c).await;
+
+    credits::grant_plan(&c, &uid, "go").await.unwrap();
+    let sub = credits::current(&c, &uid).await.unwrap().unwrap();
+    assert_eq!(sub.plan, "go");
+    assert_eq!(sub.status, "active");
+    assert_eq!(sub.credits_remaining, 1_000);
+}
+
+#[actix_web::test]
+async fn checkout_rejects_downgrade_to_go_for_active_plus() {
+    use actix_web::{http::StatusCode, test, web, App};
+
+    let Some(c) = connect().await else { return };
+    let uid = make_user(&c).await;
+    let email = email_of(&c, &uid).await;
+    credits::grant_plan(&c, &uid, "plus").await.unwrap();
+
+    let jwt_secret = "test-secret".to_string();
+    let token = crate::auth::issue_jwt(&jwt_secret, &uid, &email, "IT User", 7).unwrap();
+
+    let state = crate::AppState {
+        db: c,
+        jwt_secret,
+        resend_api_key: String::new(),
+        resend_from: String::new(),
+        openrouter_api_key: String::new(),
+        cpa_base_url: String::new(),
+        cpa_api_key: String::new(),
+        fovpay_pid: String::new(),
+        fovpay_key: String::new(),
+        frontend_base_url: "http://localhost".into(),
+        public_base_url: "http://localhost".into(),
+        usd_cny_rate: 7.2,
+        google_client_id: String::new(),
+    };
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(state))
+            .route("/api/checkout", web::post().to(crate::api::checkout)),
+    )
+    .await;
+
+    // A Plus user buying Go (lower tier) must be rejected before any payment call.
+    let req = test::TestRequest::post()
+        .uri("/api/checkout")
+        .insert_header(("Authorization", format!("Bearer {token}")))
+        .set_json(serde_json::json!({ "plan": "go" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn google_user_is_created_then_linked() {
     let Some(c) = connect().await else { return };
     let email = format!("g-{}@example.com", Uuid::new_v4());
