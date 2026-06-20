@@ -96,36 +96,33 @@ pub const CATALOG: &[CatalogModel] = &[
 
 /// A model served via the CPA reverse proxy (OpenAI-compatible) instead of
 /// OpenRouter. CPA does not return a dollar cost, so credits are charged by
-/// token count using the per-model rates below (credits per 1,000,000 tokens).
+/// token count at a single global rate (see `CPA_CREDITS_PER_MTOK_*`).
 pub struct CpaModel {
     /// Public/branded id clients select (e.g. "openachieve/grok-build-0.1").
     pub id: &'static str,
     /// Real id sent to the CPA proxy (e.g. "grok-build-0.1").
     pub upstream_id: &'static str,
-    pub credits_per_mtok_in: i64,
-    pub credits_per_mtok_out: i64,
 }
 
+/// Unified CPA pricing: every CPA model charges the same per-token rate.
+pub const CPA_CREDITS_PER_MTOK_IN: i64 = 200;
+pub const CPA_CREDITS_PER_MTOK_OUT: i64 = 800;
+
 /// CPA models offered through the metered proxy (available to any paid plan,
-/// including Go). To add a CPA model, append one row below and redeploy
-/// (`cd backend && cargo check && cargo test`, then `bash 更新.sh`):
+/// including Go). All CPA models share one global rate, so adding a model is
+/// just one line — append below and redeploy (`cd backend && cargo check &&
+/// cargo test`, then `bash 更新.sh`):
 ///
-///   CpaModel {
-///       id: "openachieve/<brand>",   // branded id clients select; must start with "openachieve/"
-///       upstream_id: "<cpa-real-id>", // the model name as it exists on the CPA proxy
-///       credits_per_mtok_in:  <credits charged per 1,000,000 input tokens>,
-///       credits_per_mtok_out: <credits charged per 1,000,000 output tokens>,
-///   },
+///   CpaModel { id: "openachieve/<brand>", upstream_id: "<cpa-real-id>" },
 ///
-/// Pricing guide: 100 credits = $1 of subscription revenue; 1 credit ≈ $0.004
-/// real cost (markup 2.5). Deductions ceil and charge ≥1 on any non-zero usage.
-/// A new entry shows up automatically at `GET /api/v1/models` and routes through
-/// the CPA proxy in `chat_completions`.
+/// `id` is the branded id clients select (must start with "openachieve/");
+/// `upstream_id` is the model name as it exists on the CPA proxy. A new entry
+/// shows up automatically at `GET /api/v1/models` and routes through the CPA
+/// proxy in `chat_completions`, priced at the global rate above.
 pub const CPA_CATALOG: &[CpaModel] = &[
-    CpaModel { id: "openachieve/grok-build-0.1", upstream_id: "grok-build-0.1", credits_per_mtok_in: 400, credits_per_mtok_out: 1600 },
-    CpaModel { id: "openachieve/grok-composer-2.5-fast", upstream_id: "grok-composer-2.5-fast", credits_per_mtok_in: 200, credits_per_mtok_out: 800 },
-    // GPT-4.1: priced the same as grok-composer-2.5-fast.
-    CpaModel { id: "openachieve/gpt-4.1", upstream_id: "gpt-4.1", credits_per_mtok_in: 200, credits_per_mtok_out: 800 },
+    CpaModel { id: "openachieve/grok-build-0.1", upstream_id: "grok-build-0.1" },
+    CpaModel { id: "openachieve/grok-composer-2.5-fast", upstream_id: "grok-composer-2.5-fast" },
+    CpaModel { id: "openachieve/gpt-4.1", upstream_id: "gpt-4.1" },
 ];
 
 /// Find a CPA model by id. A hit routes the request to the CPA upstream.
@@ -149,8 +146,15 @@ pub fn cpa_credits_from_rates(
     credits.max(1) as i32
 }
 
-pub fn cpa_credits(m: &CpaModel, prompt_tokens: i32, completion_tokens: i32) -> i32 {
-    cpa_credits_from_rates(m.credits_per_mtok_in, m.credits_per_mtok_out, prompt_tokens, completion_tokens)
+/// Credits for a CPA generation at the global CPA rate. Ceils; any non-zero
+/// usage charges at least 1 credit.
+pub fn cpa_credits(prompt_tokens: i32, completion_tokens: i32) -> i32 {
+    cpa_credits_from_rates(
+        CPA_CREDITS_PER_MTOK_IN,
+        CPA_CREDITS_PER_MTOK_OUT,
+        prompt_tokens,
+        completion_tokens,
+    )
 }
 
 #[cfg(test)]
@@ -227,11 +231,12 @@ mod tests {
     }
 
     #[test]
-    fn cpa_credits_uses_model_rates() {
-        let m = find_cpa("openachieve/grok-build-0.1").expect("catalog model exists");
-        assert_eq!(cpa_credits(m, 0, 0), 0);
-        // 1M prompt tokens at 400 credits/Mtok in = 400 credits.
-        assert_eq!(cpa_credits(m, 1_000_000, 0), 400);
+    fn cpa_credits_uses_global_rate() {
+        assert_eq!(cpa_credits(0, 0), 0);
+        // 1M prompt tokens at the global input rate (200 credits/Mtok) = 200.
+        assert_eq!(cpa_credits(1_000_000, 0), CPA_CREDITS_PER_MTOK_IN as i32);
+        // 1M completion tokens at the global output rate (800 credits/Mtok) = 800.
+        assert_eq!(cpa_credits(0, 1_000_000), CPA_CREDITS_PER_MTOK_OUT as i32);
     }
 
     #[test]

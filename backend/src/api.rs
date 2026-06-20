@@ -281,7 +281,7 @@ pub async fn chat_completions(
         let (resp, pricing, display_model) = if let Some(c) = cpa_model {
             (
                 cpa::forward_stream(&state.cpa_api_key, &state.cpa_base_url, c.upstream_id, plan.max_tokens, body.into_inner()).await,
-                Pricing::CpaTokens { in_per_mtok: c.credits_per_mtok_in, out_per_mtok: c.credits_per_mtok_out },
+                Pricing::CpaTokens,
                 Some(c.id.to_string()),
             )
         } else {
@@ -318,7 +318,7 @@ pub async fn chat_completions(
                 return HttpResponse::BadGateway().json(json!({ "error": "upstream error" }));
             }
         };
-        let charged = plans::cpa_credits(c, result.prompt_tokens, result.completion_tokens);
+        let charged = plans::cpa_credits(result.prompt_tokens, result.completion_tokens);
         // Present the branded id to the client, not the upstream model.
         if let Some(obj) = result.body.as_object_mut() {
             obj.insert("model".to_string(), json!(c.id));
@@ -379,7 +379,7 @@ pub async fn chat_completions(
 /// Per-upstream credit pricing for the streaming settle step.
 enum Pricing {
     OpenRouterCost,
-    CpaTokens { in_per_mtok: i64, out_per_mtok: i64 },
+    CpaTokens,
 }
 
 /// Relay an upstream SSE stream to the client, stripping dollar fields from each
@@ -473,10 +473,7 @@ async fn stream_completion(
 
         let (charged, cost_micros_final) = match pricing {
             Pricing::OpenRouterCost => (plans::cost_to_credits(cost_micros), cost_micros),
-            Pricing::CpaTokens { in_per_mtok, out_per_mtok } => (
-                plans::cpa_credits_from_rates(in_per_mtok, out_per_mtok, prompt_tokens, completion_tokens),
-                0,
-            ),
+            Pricing::CpaTokens => (plans::cpa_credits(prompt_tokens, completion_tokens), 0),
         };
         if let Err(e) = db::record_usage_and_deduct(
             &state.db,
